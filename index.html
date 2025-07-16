@@ -82,19 +82,17 @@
             font-size: 0.9rem;
         }
 
-
         .company-info {
             background: white;
             border: 2px solid #34495e;
             padding: 15px;
             margin-bottom: 20px;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* ★ 200 → 250 */
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 10px;
             font-size: 0.9rem;
-            justify-content: end; /* ★ 그리드 정렬 왼쪽 기준 */
+            justify-content: end;
         }
-
 
         .company-info div {
             padding: 5px;
@@ -169,18 +167,17 @@
         }
 
         .btn-um {
-            font-size: 0.75rem;      /* 글씨 작게 */
-            padding: 3px 6px;        /* 상하 3px, 좌우 6px */
-            line-height: 1.2;        /* 줄간격 줄이기 */
-            min-width: auto;         /* 기본 넓이 제한 해제 */
-            height: auto;            /* 필요 시 명시적으로 높이 제거 */
-            border-radius: 4px;      /* 모서리 살짝 둥글게 */
+            font-size: 0.75rem;
+            padding: 3px 6px;
+            line-height: 1.2;
+            min-width: auto;
+            height: auto;
+            border-radius: 4px;
         }
 
         .backup-btns-um {
-            gap: 6px; /* 버튼 사이 간격 조절 */
+            gap: 6px;
         }
-
 
         .form-row {
             display: grid;
@@ -575,31 +572,26 @@
             </div>
         </div>
 
-        
-
         <!-- 데이터 백업/복원 -->
         <div class="data-management-2col">
-    <div class="left">
-        <h4>📁 데이터 관리</h4>
-        <div class="backup-btns-um">
-            <button class="btn" onclick="exportData()">데이터 내보내기 (JSON)</button>
-            <button class="btn" onclick="document.getElementById('importFile').click()">데이터 가져오기</button>
-            <button class="btn btn-danger" onclick="clearAllData()">전체 데이터 삭제</button>
-            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+            <div class="left">
+                <h4>📁 데이터 관리</h4>
+                <div class="backup-btns-um">
+                    <button class="btn" onclick="exportData()">데이터 내보내기 (JSON)</button>
+                    <button class="btn" onclick="document.getElementById('importFile').click()">데이터 가져오기</button>
+                    <button class="btn btn-danger" onclick="clearAllData()">전체 데이터 삭제</button>
+                    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+                </div>
+            </div>
+
+            <div class="right">
+                <h4>➕ 새 분류 추가</h4>
+                <div class="category-adder">
+                    <input type="text" id="newCategory" placeholder="예: 네트워크장비">
+                    <button class="btn btn-sm" onclick="addCategory()">추가</button>
+                </div>
+            </div>
         </div>
-    </div>
-
-    <div class="right">
-        <h4>➕ 새 분류 추가</h4>
-        <div class="category-adder">
-            <input type="text" id="newCategory" placeholder="예: 네트워크장비">
-            <button class="btn btn-sm" onclick="addCategory()">추가</button>
-        </div>
-    </div>
-</div>
-
-</div>
-
     </div>
 
     <!-- 비품 등록/수정 모달 -->
@@ -749,7 +741,18 @@
         </div>
     </div>
 
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <script>
+        // Supabase 설정
+        const SUPABASE_URL = 'https://pwvjjsweeazvzviknahe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3dmpqc3dlZWF6dnp2aWtuYWhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NTIxNzMsImV4cCI6MjA2ODIyODE3M30.GgtLKFeEg61xmC_Jrmf-qfbUNK5eVC82EO8chJJcIQc';
+        
+        // Supabase 클라이언트 초기화
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
         // 전역 변수
         let equipmentData = [];
         let rentalData = [];
@@ -757,16 +760,14 @@
         let categoryList = ["전자기기", "사무기기", "가구", "소모품"];
 
         // 페이지 로드시 초기화
-        document.addEventListener('DOMContentLoaded', function() {
-            loadData();
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadDataFromSupabase();
             updateStats();
             renderEquipmentTable();
             renderRentalTable();
             setCurrentDate();
             renderCategoryOptions();
-
         });
-
 
         function renderCategoryOptions() {
             const select = document.getElementById('category');
@@ -797,11 +798,54 @@
             const formattedDate = today.getFullYear() + '년 ' + 
                                  String(today.getMonth() + 1).padStart(2, '0') + '월 ' + 
                                  String(today.getDate()).padStart(2, '0') + '일';
-            document.getElementById('currentDate').textContent = formattedDate;
         }
 
-        // 로컬스토리지에서 데이터 로드
-        function loadData() {
+        // Supabase에서 데이터 로드
+        async function loadDataFromSupabase() {
+            try {
+                // 비품 데이터 로드
+                const { data: equipment, error: equipmentError } = await supabaseClient
+                    .from('equipment')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (equipmentError) throw equipmentError;
+                equipmentData = equipment || [];
+
+                // 대여 데이터 로드
+                const { data: rentals, error: rentalError } = await supabaseClient
+                    .from('rentals')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (rentalError) throw rentalError;
+                rentalData = rentals || [];
+
+                // 분류 데이터 로드
+                const { data: categories, error: categoryError } = await supabaseClient
+                    .from('categories')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+                
+                if (categoryError) throw categoryError;
+                
+                if (categories && categories.length > 0) {
+                    categoryList = categories.map(cat => cat.name);
+                }
+
+                console.log('데이터 로드 완료:', { equipment: equipmentData.length, rentals: rentalData.length, categories: categoryList.length });
+                
+            } catch (error) {
+                console.error('데이터 로드 중 오류:', error);
+                alert('데이터를 불러오는 중 오류가 발생했습니다. 콘솔을 확인해주세요.');
+                
+                // 오류 시 로컬 스토리지에서 데이터 로드
+                loadDataFromLocalStorage();
+            }
+        }
+
+        // 로컬스토리지에서 데이터 로드 (백업용)
+        function loadDataFromLocalStorage() {
             const savedEquipment = localStorage.getItem('equipmentData');
             const savedRentals = localStorage.getItem('rentalData');
             const savedCategories = localStorage.getItem('categoryList');
@@ -816,17 +860,71 @@
                 categoryList = JSON.parse(savedCategories);
             }
 
-            renderCategoryOptions(); // 항상 실행해줘야 UI 반영됨
+            renderCategoryOptions();
         }
 
-
-        // 로컬스토리지에 데이터 저장
-        function saveData() {
-            localStorage.setItem('equipmentData', JSON.stringify(equipmentData));
-            localStorage.setItem('rentalData', JSON.stringify(rentalData));
-            localStorage.setItem('categoryList', JSON.stringify(categoryList)); // ✅
+        // 비품 저장/업데이트
+        async function saveEquipment(equipmentItem, isUpdate = false, originalId = null) {
+            try {
+                if (isUpdate && originalId) {
+                    const { error } = await supabaseClient
+                        .from('equipment')
+                        .update(equipmentItem)
+                        .eq('id', originalId);
+                    
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabaseClient
+                        .from('equipment')
+                        .insert([equipmentItem]);
+                    
+                    if (error) throw error;
+                }
+                
+                await loadDataFromSupabase();
+                return true;
+            } catch (error) {
+                console.error('비품 저장 오류:', error);
+                alert('비품 저장 중 오류가 발생했습니다: ' + error.message);
+                return false;
+            }
         }
 
+        // 대여 저장
+        async function saveRental(rentalItem) {
+            try {
+                const { error } = await supabaseClient
+                    .from('rentals')
+                    .insert([rentalItem]);
+                
+                if (error) throw error;
+                
+                await loadDataFromSupabase();
+                return true;
+            } catch (error) {
+                console.error('대여 저장 오류:', error);
+                alert('대여 저장 중 오류가 발생했습니다: ' + error.message);
+                return false;
+            }
+        }
+
+        // 분류 저장
+        async function saveCategory(categoryName) {
+            try {
+                const { error } = await supabaseClient
+                    .from('categories')
+                    .insert([{ name: categoryName }]);
+                
+                if (error) throw error;
+                
+                await loadDataFromSupabase();
+                return true;
+            } catch (error) {
+                console.error('분류 저장 오류:', error);
+                alert('분류 저장 중 오류가 발생했습니다: ' + error.message);
+                return false;
+            }
+        }
 
         // 비품 테이블 렌더링
         function renderEquipmentTable() {
@@ -840,12 +938,12 @@
             tbody.innerHTML = equipmentData.map((item, index) => `
                 <tr>
                     <td>${index + 1}</td>
-                    <td>${item.equipmentCode}</td>
+                    <td>${item.equipment_code}</td>
                     <td>${item.category}</td>
-                    <td>${item.itemName}</td>
+                    <td>${item.item_name}</td>
                     <td>${item.model || '-'}</td>
                     <td>${item.quantity}</td>
-                    <td>${item.purchaseDate}</td>
+                    <td>${item.purchase_date}</td>
                     <td>${item.price ? item.price.toLocaleString() + '원' : '-'}</td>
                     <td>${item.department || '-'}</td>
                     <td>${item.user || '-'}</td>
@@ -873,18 +971,18 @@
             tbody.innerHTML = rentalData.map((item, index) => `
                 <tr>
                     <td>${index + 1}</td>
-                    <td>${item.rentalCode}</td>
-                    <td>${item.equipmentCode}</td>
-                    <td>${getEquipmentName(item.equipmentCode)}</td>
+                    <td>${item.rental_code}</td>
+                    <td>${item.equipment_code}</td>
+                    <td>${getEquipmentName(item.equipment_code)}</td>
                     <td>${item.borrower}</td>
                     <td>${item.department}</td>
-                    <td>${item.rentalDate}</td>
-                    <td>${item.returnDate}</td>
-                    <td>${item.actualReturnDate || '-'}</td>
-                    <td>${item.actualReturnDate ? '반납완료' : '대여중'}</td>
+                    <td>${item.rental_date}</td>
+                    <td>${item.return_date}</td>
+                    <td>${item.actual_return_date || '-'}</td>
+                    <td>${item.actual_return_date ? '반납완료' : '대여중'}</td>
                     <td>
                         <div class="action-btns">
-                            ${!item.actualReturnDate ? `<button class="btn btn-sm btn-success" onclick="returnEquipment(${index})">반납</button>` : ''}
+                            ${!item.actual_return_date ? `<button class="btn btn-sm btn-success" onclick="returnEquipment(${index})">반납</button>` : ''}
                             <button class="btn btn-sm btn-danger" onclick="deleteRental(${index})">삭제</button>
                         </div>
                     </td>
@@ -919,14 +1017,14 @@
         }
 
         function getEquipmentName(equipmentCode) {
-            const equipment = equipmentData.find(item => item.equipmentCode === equipmentCode);
-            return equipment ? equipment.itemName : '알 수 없음';
+            const equipment = equipmentData.find(item => item.equipment_code === equipmentCode);
+            return equipment ? equipment.item_name : '알 수 없음';
         }
 
         function generateEquipmentCode() {
             const lastNumber = equipmentData.length > 0 ? 
                 Math.max(...equipmentData.map(item => {
-                    const match = item.equipmentCode.match(/EQ-(\d+)/);
+                    const match = item.equipment_code.match(/EQ-(\d+)/);
                     return match ? parseInt(match[1]) : 0;
                 })) : 0;
             return `EQ-${String(lastNumber + 1).padStart(3, '0')}`;
@@ -935,72 +1033,78 @@
         function generateRentalCode() {
             const lastNumber = rentalData.length > 0 ? 
                 Math.max(...rentalData.map(item => {
-                    const match = item.rentalCode.match(/R-(\d+)/);
+                    const match = item.rental_code.match(/R-(\d+)/);
                     return match ? parseInt(match[1]) : 0;
                 })) : 0;
             return `R-${String(lastNumber + 1).padStart(3, '0')}`;
         }
 
         // 비품 등록/수정 폼 처리
-        document.getElementById('equipmentForm').addEventListener('submit', function(e) {
+        document.getElementById('equipmentForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const formData = {
-                equipmentCode: document.getElementById('equipmentCode').value,
+                equipment_code: document.getElementById('equipmentCode').value,
                 category: document.getElementById('category').value,
-                itemName: document.getElementById('itemName').value,
+                item_name: document.getElementById('itemName').value,
                 model: document.getElementById('model').value,
                 quantity: parseInt(document.getElementById('quantity').value),
-                purchaseDate: document.getElementById('purchaseDate').value,
+                purchase_date: document.getElementById('purchaseDate').value,
                 price: parseInt(document.getElementById('price').value) || 0,
                 supplier: document.getElementById('supplier').value,
                 department: document.getElementById('department').value,
                 user: document.getElementById('user').value,
                 location: document.getElementById('location').value,
                 status: document.getElementById('status').value,
-                notes: document.getElementById('notes').value,
-                createdAt: new Date().toISOString()
+                notes: document.getElementById('notes').value
             };
 
+            let success = false;
             if (editingEquipmentId !== null) {
                 // 수정
-                equipmentData[editingEquipmentId] = formData;
-                alert('비품 정보가 수정되었습니다.');
+                const originalItem = equipmentData[editingEquipmentId];
+                success = await saveEquipment(formData, true, originalItem.id);
+                if (success) {
+                    alert('비품 정보가 수정되었습니다.');
+                }
             } else {
                 // 신규 등록
-                equipmentData.push(formData);
-                alert('새 비품이 등록되었습니다.');
+                success = await saveEquipment(formData, false);
+                if (success) {
+                    alert('새 비품이 등록되었습니다.');
+                }
             }
             
-            saveData();
-            renderEquipmentTable();
-            updateStats();
-            closeModal('equipmentModal');
-            resetEquipmentForm();
+            if (success) {
+                renderEquipmentTable();
+                updateStats();
+                closeModal('equipmentModal');
+                resetEquipmentForm();
+            }
         });
 
         // 대여 등록 폼 처리
-        document.getElementById('rentalForm').addEventListener('submit', function(e) {
+        document.getElementById('rentalForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const formData = {
-                rentalCode: document.getElementById('rentalCode').value,
-                equipmentCode: document.getElementById('rentalEquipmentCode').value,
+                rental_code: document.getElementById('rentalCode').value,
+                equipment_code: document.getElementById('rentalEquipmentCode').value,
                 borrower: document.getElementById('borrower').value,
                 department: document.getElementById('borrowerDept').value,
-                rentalDate: document.getElementById('rentalDate').value,
-                returnDate: document.getElementById('returnDate').value,
+                rental_date: document.getElementById('rentalDate').value,
+                return_date: document.getElementById('returnDate').value,
                 purpose: document.getElementById('rentalPurpose').value,
-                actualReturnDate: null,
-                createdAt: new Date().toISOString()
+                actual_return_date: null
             };
 
-            rentalData.push(formData);
-            saveData();
-            renderRentalTable();
-            closeModal('rentalModal');
-            resetRentalForm();
-            alert('대여 등록이 완료되었습니다.');
+            const success = await saveRental(formData);
+            if (success) {
+                renderRentalTable();
+                closeModal('rentalModal');
+                resetRentalForm();
+                alert('대여 등록이 완료되었습니다.');
+            }
         });
 
         // 모달 관리
@@ -1045,15 +1149,15 @@
             // 대여 중이 아닌 비품만 표시
             const availableEquipment = equipmentData.filter(equipment => {
                 const isRented = rentalData.some(rental => 
-                    rental.equipmentCode === equipment.equipmentCode && !rental.actualReturnDate
+                    rental.equipment_code === equipment.equipment_code && !rental.actual_return_date
                 );
                 return !isRented && equipment.status === '양호';
             });
 
             availableEquipment.forEach(equipment => {
                 const option = document.createElement('option');
-                option.value = equipment.equipmentCode;
-                option.textContent = `${equipment.equipmentCode} - ${equipment.itemName}`;
+                option.value = equipment.equipment_code;
+                option.textContent = `${equipment.equipment_code} - ${equipment.item_name}`;
                 select.appendChild(option);
             });
         }
@@ -1067,12 +1171,12 @@
             document.getElementById('equipmentModalTitle').textContent = '비품 정보 수정';
             
             // 폼에 기존 데이터 채우기
-            document.getElementById('equipmentCode').value = equipment.equipmentCode;
+            document.getElementById('equipmentCode').value = equipment.equipment_code;
             document.getElementById('category').value = equipment.category;
-            document.getElementById('itemName').value = equipment.itemName;
+            document.getElementById('itemName').value = equipment.item_name;
             document.getElementById('model').value = equipment.model || '';
             document.getElementById('quantity').value = equipment.quantity;
-            document.getElementById('purchaseDate').value = equipment.purchaseDate;
+            document.getElementById('purchaseDate').value = equipment.purchase_date;
             document.getElementById('price').value = equipment.price || '';
             document.getElementById('supplier').value = equipment.supplier || '';
             document.getElementById('department').value = equipment.department || '';
@@ -1085,36 +1189,75 @@
         }
 
         // 비품 삭제
-        function deleteEquipment(index) {
+        async function deleteEquipment(index) {
             if (!confirm('이 비품을 삭제하시겠습니까?')) return;
             
-            equipmentData.splice(index, 1);
-            saveData();
-            renderEquipmentTable();
-            updateStats();
-            alert('비품이 삭제되었습니다.');
+            try {
+                const equipment = equipmentData[index];
+                const { error } = await supabaseClient
+                    .from('equipment')
+                    .delete()
+                    .eq('id', equipment.id);
+                
+                if (error) throw error;
+                
+                await loadDataFromSupabase();
+                renderEquipmentTable();
+                updateStats();
+                alert('비품이 삭제되었습니다.');
+                
+            } catch (error) {
+                console.error('비품 삭제 오류:', error);
+                alert('비품 삭제 중 오류가 발생했습니다: ' + error.message);
+            }
         }
 
         // 대여 반납
-        function returnEquipment(index) {
+        async function returnEquipment(index) {
             if (!confirm('이 비품을 반납 처리하시겠습니까?')) return;
             
-            const today = new Date().toISOString().split('T')[0];
-            rentalData[index].actualReturnDate = today;
-            
-            saveData();
-            renderRentalTable();
-            alert('반납 처리가 완료되었습니다.');
+            try {
+                const rental = rentalData[index];
+                const today = new Date().toISOString().split('T')[0];
+                
+                const { error } = await supabaseClient
+                    .from('rentals')
+                    .update({ actual_return_date: today })
+                    .eq('id', rental.id);
+                
+                if (error) throw error;
+                
+                await loadDataFromSupabase();
+                renderRentalTable();
+                alert('반납 처리가 완료되었습니다.');
+                
+            } catch (error) {
+                console.error('반납 처리 오류:', error);
+                alert('반납 처리 중 오류가 발생했습니다: ' + error.message);
+            }
         }
 
         // 대여 삭제
-        function deleteRental(index) {
+        async function deleteRental(index) {
             if (!confirm('이 대여 기록을 삭제하시겠습니까?')) return;
             
-            rentalData.splice(index, 1);
-            saveData();
-            renderRentalTable();
-            alert('대여 기록이 삭제되었습니다.');
+            try {
+                const rental = rentalData[index];
+                const { error } = await supabaseClient
+                    .from('rentals')
+                    .delete()
+                    .eq('id', rental.id);
+                
+                if (error) throw error;
+                
+                await loadDataFromSupabase();
+                renderRentalTable();
+                alert('대여 기록이 삭제되었습니다.');
+                
+            } catch (error) {
+                console.error('대여 기록 삭제 오류:', error);
+                alert('대여 기록 삭제 중 오류가 발생했습니다: ' + error.message);
+            }
         }
 
         // 검색 및 필터
@@ -1125,9 +1268,9 @@
 
             const filteredData = equipmentData.filter(item => {
                 const matchesSearch = !searchTerm || 
-                    item.itemName.toLowerCase().includes(searchTerm) ||
+                    item.item_name.toLowerCase().includes(searchTerm) ||
                     (item.model && item.model.toLowerCase().includes(searchTerm)) ||
-                    item.equipmentCode.toLowerCase().includes(searchTerm);
+                    item.equipment_code.toLowerCase().includes(searchTerm);
                 
                 const matchesCategory = !categoryFilter || item.category === categoryFilter;
                 const matchesStatus = !statusFilter || item.status === statusFilter;
@@ -1148,12 +1291,12 @@
                 return `
                     <tr>
                         <td>${originalIndex + 1}</td>
-                        <td>${item.equipmentCode}</td>
+                        <td>${item.equipment_code}</td>
                         <td>${item.category}</td>
-                        <td>${item.itemName}</td>
+                        <td>${item.item_name}</td>
                         <td>${item.model || '-'}</td>
                         <td>${item.quantity}</td>
-                        <td>${item.purchaseDate}</td>
+                        <td>${item.purchase_date}</td>
                         <td>${item.price ? item.price.toLocaleString() + '원' : '-'}</td>
                         <td>${item.department || '-'}</td>
                         <td>${item.user || '-'}</td>
@@ -1171,44 +1314,89 @@
         }
 
         // 데이터 내보내기 (JSON)
-        function exportData() {
-            const data = {
-                equipment: equipmentData,
-                rentals: rentalData,
-                categories: categoryList, 
-                exportDate: new Date().toISOString(),
-                version: '1.1'
-            };
+        async function exportData() {
+            try {
+                await loadDataFromSupabase(); // 최신 데이터 로드
+                
+                const data = {
+                    equipment: equipmentData,
+                    rentals: rentalData,
+                    categories: categoryList, 
+                    exportDate: new Date().toISOString(),
+                    version: '2.0'
+                };
 
-            const dataStr = JSON.stringify(data, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                const dataStr = JSON.stringify(data, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
 
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(dataBlob);
-            link.download = `비품관리_백업_${new Date().toISOString().split('T')[0]}.json`;
-            link.click();
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `비품관리_백업_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+            } catch (error) {
+                console.error('데이터 내보내기 오류:', error);
+                alert('데이터 내보내기 중 오류가 발생했습니다.');
+            }
         }
 
         // 데이터 가져오기 (JSON)
-        function importData(event) {
+        async function importData(event) {
             const file = event.target.files[0];
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
 
                     if (data.equipment && data.rentals) {
-                        if (confirm('기존 데이터를 새로운 데이터로 교체하시겠습니까?')) {
-                            equipmentData = data.equipment;
-                            rentalData = data.rentals;
+                        if (confirm('기존 데이터를 새로운 데이터로 교체하시겠습니까? (Supabase에 저장됩니다)')) {
+                            
+                            // 기존 데이터 삭제
+                            await supabaseClient.from('equipment').delete().neq('id', 0);
+                            await supabaseClient.from('rentals').delete().neq('id', 0);
+                            await supabaseClient.from('categories').delete().neq('id', 0);
+                            
+                            // 새 데이터 삽입
+                            if (data.equipment.length > 0) {
+                                const equipmentToInsert = data.equipment.map(item => ({
+                                    equipment_code: item.equipment_code || item.equipmentCode,
+                                    category: item.category,
+                                    item_name: item.item_name || item.itemName,
+                                    model: item.model,
+                                    quantity: item.quantity,
+                                    purchase_date: item.purchase_date || item.purchaseDate,
+                                    price: item.price,
+                                    supplier: item.supplier,
+                                    department: item.department,
+                                    user: item.user,
+                                    location: item.location,
+                                    status: item.status,
+                                    notes: item.notes
+                                }));
+                                await supabaseClient.from('equipment').insert(equipmentToInsert);
+                            }
+                            
+                            if (data.rentals.length > 0) {
+                                const rentalsToInsert = data.rentals.map(item => ({
+                                    rental_code: item.rental_code || item.rentalCode,
+                                    equipment_code: item.equipment_code || item.equipmentCode,
+                                    borrower: item.borrower,
+                                    department: item.department,
+                                    rental_date: item.rental_date || item.rentalDate,
+                                    return_date: item.return_date || item.returnDate,
+                                    purpose: item.purpose,
+                                    actual_return_date: item.actual_return_date || item.actualReturnDate
+                                }));
+                                await supabaseClient.from('rentals').insert(rentalsToInsert);
+                            }
+                            
+                            if (data.categories && data.categories.length > 0) {
+                                const categoriesToInsert = data.categories.map(name => ({ name }));
+                                await supabaseClient.from('categories').insert(categoriesToInsert);
+                            }
 
-                            // ✅ 카테고리 목록도 가져오도록
-                            categoryList = Array.isArray(data.categories) ? data.categories : ["전자기기", "사무기기", "가구", "소모품"];
-                            renderCategoryOptions();
-
-                            saveData();
+                            await loadDataFromSupabase();
                             renderEquipmentTable();
                             renderRentalTable();
                             updateStats();
@@ -1218,26 +1406,35 @@
                         alert('올바른 백업 파일이 아닙니다.');
                     }
                 } catch (error) {
-                    alert('파일을 읽을 수 없습니다.');
+                    console.error('데이터 가져오기 오류:', error);
+                    alert('파일을 읽을 수 없습니다: ' + error.message);
                 }
             };
             reader.readAsText(file);
             event.target.value = '';
         }
 
-
         // 전체 데이터 삭제
-        function clearAllData() {
+        async function clearAllData() {
             if (!confirm('모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
             if (!confirm('정말로 모든 비품 및 대여 데이터를 삭제하시겠습니까?')) return;
             
-            equipmentData = [];
-            rentalData = [];
-            saveData();
-            renderEquipmentTable();
-            renderRentalTable();
-            updateStats();
-            alert('모든 데이터가 삭제되었습니다.');
+            try {
+                await supabaseClient.from('equipment').delete().neq('id', 0);
+                await supabaseClient.from('rentals').delete().neq('id', 0);
+                
+                equipmentData = [];
+                rentalData = [];
+                
+                renderEquipmentTable();
+                renderRentalTable();
+                updateStats();
+                alert('모든 데이터가 삭제되었습니다.');
+                
+            } catch (error) {
+                console.error('데이터 삭제 오류:', error);
+                alert('데이터 삭제 중 오류가 발생했습니다: ' + error.message);
+            }
         }
 
         // 인쇄 기능
@@ -1255,64 +1452,19 @@
             });
         };
 
-        // 샘플 데이터 추가 (개발용 - 필요시 제거)
-        function addSampleData() {
-            if (equipmentData.length === 0) {
-                equipmentData = [
-                    {
-                        equipmentCode: 'EQ-001',
-                        category: '전자기기',
-                        itemName: '사무용 컴퓨터',
-                        model: 'LG 데스크탑 PC',
-                        quantity: 1,
-                        purchaseDate: '2024-03-15',
-                        price: 800000,
-                        supplier: 'LG전자',
-                        department: '총무팀',
-                        user: '김총무',
-                        location: '1층 사무실',
-                        status: '양호',
-                        notes: '정상가동중',
-                        createdAt: '2024-03-15T09:00:00.000Z'
-                    },
-                    {
-                        equipmentCode: 'EQ-002',
-                        category: '사무기기',
-                        itemName: '복합기',
-                        model: '삼성 SL-K2200',
-                        quantity: 1,
-                        purchaseDate: '2024-01-20',
-                        price: 450000,
-                        supplier: '삼성전자',
-                        department: '전체',
-                        user: '공용',
-                        location: '1층 복도',
-                        status: '보통',
-                        notes: '토너교체필요',
-                        createdAt: '2024-01-20T09:00:00.000Z'
-                    }
-                ];
-                saveData();
-                renderEquipmentTable();
-                updateStats();
-            }
-        }
-
-        function addCategory() {
+        async function addCategory() {
             const input = document.getElementById('newCategory');
             const newCat = input.value.trim();
             if (!newCat) return alert("분류명을 입력해주세요.");
             if (categoryList.includes(newCat)) return alert("이미 존재하는 분류입니다.");
 
-            categoryList.push(newCat);
-            renderCategoryOptions();
-            input.value = '';
-            alert("새 분류가 추가되었습니다.");
+            const success = await saveCategory(newCat);
+            if (success) {
+                renderCategoryOptions();
+                input.value = '';
+                alert("새 분류가 추가되었습니다.");
+            }
         }
-
-
-        // 개발용 샘플 데이터 (필요시 주석 해제)
-        // addSampleData();
     </script>
 </body>
 </html>
