@@ -46,16 +46,55 @@
             padding: 0 20px;
         }
 
+        .data-management-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            background-color: #ecf0f1;
+            border: 1px solid #bdc3c7;
+            padding: 20px;
+            margin-top: 20px;
+            align-items: start;
+        }
+
+        .data-management-2col h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .backup-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .category-adder {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .category-adder input {
+            flex: 1;
+            padding: 8px;
+            border: 2px solid #bdc3c7;
+            font-size: 0.9rem;
+        }
+
+
         .company-info {
             background: white;
             border: 2px solid #34495e;
             padding: 15px;
             margin-bottom: 20px;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* ★ 200 → 250 */
             gap: 10px;
             font-size: 0.9rem;
+            justify-content: end; /* ★ 그리드 정렬 왼쪽 기준 */
         }
+
 
         .company-info div {
             padding: 5px;
@@ -128,6 +167,20 @@
             padding: 4px 8px;
             font-size: 0.8rem;
         }
+
+        .btn-um {
+            font-size: 0.75rem;      /* 글씨 작게 */
+            padding: 3px 6px;        /* 상하 3px, 좌우 6px */
+            line-height: 1.2;        /* 줄간격 줄이기 */
+            min-width: auto;         /* 기본 넓이 제한 해제 */
+            height: auto;            /* 필요 시 명시적으로 높이 제거 */
+            border-radius: 4px;      /* 모서리 살짝 둥글게 */
+        }
+
+        .backup-btns-um {
+            gap: 6px; /* 버튼 사이 간격 조절 */
+        }
+
 
         .form-row {
             display: grid;
@@ -399,10 +452,8 @@
     <div class="container">
         <!-- 회사 정보 -->
         <div class="company-info">
-            <div><strong>회사명:</strong> <span id="companyName">염풍도리 주식회사</span></div>
-            <div><strong>작성일:</strong> <span id="currentDate">2025-07-16</span></div>
+            <div><strong>회사명:</strong> <span id="companyName">시점엔지니어링</span></div>
             <div><strong>담당자:</strong> <span id="manager">관리팀 염우선</span></div>
-            <div><strong>연락처:</strong> <span id="contact">102-0  000-0000</span></div>
         </div>
 
         <!-- 통계 -->
@@ -524,16 +575,31 @@
             </div>
         </div>
 
+        
+
         <!-- 데이터 백업/복원 -->
-        <div class="backup-section">
-            <h4>📁 데이터 관리</h4>
-            <div class="backup-btns">
-                <button class="btn" onclick="exportData()">데이터 내보내기 (JSON)</button>
-                <button class="btn" onclick="document.getElementById('importFile').click()">데이터 가져오기</button>
-                <button class="btn btn-danger" onclick="clearAllData()">전체 데이터 삭제</button>
-                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
-            </div>
+        <div class="data-management-2col">
+    <div class="left">
+        <h4>📁 데이터 관리</h4>
+        <div class="backup-btns-um">
+            <button class="btn" onclick="exportData()">데이터 내보내기 (JSON)</button>
+            <button class="btn" onclick="document.getElementById('importFile').click()">데이터 가져오기</button>
+            <button class="btn btn-danger" onclick="clearAllData()">전체 데이터 삭제</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
         </div>
+    </div>
+
+    <div class="right">
+        <h4>➕ 새 분류 추가</h4>
+        <div class="category-adder">
+            <input type="text" id="newCategory" placeholder="예: 네트워크장비">
+            <button class="btn btn-sm" onclick="addCategory()">추가</button>
+        </div>
+    </div>
+</div>
+
+</div>
+
     </div>
 
     <!-- 비품 등록/수정 모달 -->
@@ -688,6 +754,7 @@
         let equipmentData = [];
         let rentalData = [];
         let editingEquipmentId = null;
+        let categoryList = ["전자기기", "사무기기", "가구", "소모품"];
 
         // 페이지 로드시 초기화
         document.addEventListener('DOMContentLoaded', function() {
@@ -696,7 +763,33 @@
             renderEquipmentTable();
             renderRentalTable();
             setCurrentDate();
+            renderCategoryOptions();
+
         });
+
+
+        function renderCategoryOptions() {
+            const select = document.getElementById('category');
+            select.innerHTML = '<option value="">선택하세요</option>';
+            categoryList.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+            });
+
+            // 필터에도 적용
+            const filter = document.getElementById('categoryFilter');
+            if (filter) {
+                filter.innerHTML = '<option value="">전체 분류</option>';
+                categoryList.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    filter.appendChild(option);
+                });
+            }
+        }
 
         // 현재 날짜 설정
         function setCurrentDate() {
@@ -711,20 +804,29 @@
         function loadData() {
             const savedEquipment = localStorage.getItem('equipmentData');
             const savedRentals = localStorage.getItem('rentalData');
-            
+            const savedCategories = localStorage.getItem('categoryList');
+
             if (savedEquipment) {
                 equipmentData = JSON.parse(savedEquipment);
             }
             if (savedRentals) {
                 rentalData = JSON.parse(savedRentals);
             }
+            if (savedCategories) {
+                categoryList = JSON.parse(savedCategories);
+            }
+
+            renderCategoryOptions(); // 항상 실행해줘야 UI 반영됨
         }
+
 
         // 로컬스토리지에 데이터 저장
         function saveData() {
             localStorage.setItem('equipmentData', JSON.stringify(equipmentData));
             localStorage.setItem('rentalData', JSON.stringify(rentalData));
+            localStorage.setItem('categoryList', JSON.stringify(categoryList)); // ✅
         }
+
 
         // 비품 테이블 렌더링
         function renderEquipmentTable() {
@@ -1073,13 +1175,14 @@
             const data = {
                 equipment: equipmentData,
                 rentals: rentalData,
+                categories: categoryList, 
                 exportDate: new Date().toISOString(),
-                version: '1.0'
+                version: '1.1'
             };
-            
+
             const dataStr = JSON.stringify(data, null, 2);
             const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            
+
             const link = document.createElement('a');
             link.href = URL.createObjectURL(dataBlob);
             link.download = `비품관리_백업_${new Date().toISOString().split('T')[0]}.json`;
@@ -1090,16 +1193,21 @@
         function importData(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
+
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
-                    
+
                     if (data.equipment && data.rentals) {
                         if (confirm('기존 데이터를 새로운 데이터로 교체하시겠습니까?')) {
                             equipmentData = data.equipment;
                             rentalData = data.rentals;
+
+                            // ✅ 카테고리 목록도 가져오도록
+                            categoryList = Array.isArray(data.categories) ? data.categories : ["전자기기", "사무기기", "가구", "소모품"];
+                            renderCategoryOptions();
+
                             saveData();
                             renderEquipmentTable();
                             renderRentalTable();
@@ -1114,10 +1222,9 @@
                 }
             };
             reader.readAsText(file);
-            
-            // 파일 입력 초기화
             event.target.value = '';
         }
+
 
         // 전체 데이터 삭제
         function clearAllData() {
@@ -1190,6 +1297,19 @@
                 updateStats();
             }
         }
+
+        function addCategory() {
+            const input = document.getElementById('newCategory');
+            const newCat = input.value.trim();
+            if (!newCat) return alert("분류명을 입력해주세요.");
+            if (categoryList.includes(newCat)) return alert("이미 존재하는 분류입니다.");
+
+            categoryList.push(newCat);
+            renderCategoryOptions();
+            input.value = '';
+            alert("새 분류가 추가되었습니다.");
+        }
+
 
         // 개발용 샘플 데이터 (필요시 주석 해제)
         // addSampleData();
